@@ -159,7 +159,7 @@ class PDFImageExtractor:
 
                 # Ask Claude to analyze the image
                 message = self.claude_client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model="claude-3-5-sonnet-20240620",
                     max_tokens=200,
                     messages=[
                         {
