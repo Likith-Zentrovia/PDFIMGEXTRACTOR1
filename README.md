@@ -5,7 +5,7 @@ A powerful Python tool for extracting images from PDF files with batch processin
 ## Features
 
 - **Two Extraction Modes**:
-  - **Page Rendering Mode**: Renders entire pages as images (screenshot-like), perfect for preserving text
+  - **Image Region Rendering Mode**: Detects images and renders only those regions (screenshot-like), perfect for preserving text
   - **Embedded Extraction Mode**: Extracts individual embedded images from PDFs
 - **Batch Processing**: Process entire folders of PDF files at once
 - **Organized Output**: Each PDF gets its own folder for extracted images
@@ -61,7 +61,7 @@ This will:
 - Extract images from each PDF
 - Save images in separate folders: `extracted_images/pdf_name1/`, `extracted_images/pdf_name2/`, etc.
 
-### Page Rendering Mode (Screenshot Mode) - RECOMMENDED
+### Image Region Rendering Mode (Screenshot Mode) - RECOMMENDED
 
 **Use this mode when text in images appears altered or you need pixel-perfect extraction:**
 
@@ -70,10 +70,11 @@ python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch --rende
 ```
 
 This mode:
-- Renders each PDF page as a high-quality image (like taking a screenshot)
-- Preserves text and all visual elements exactly as they appear in the PDF
-- Perfect for documents where embedded images contain text
-- No text alteration or quality loss
+- Detects where images are located in the PDF
+- Renders only those specific image regions (not the entire page)
+- Like taking a screenshot of just the image area
+- Preserves text within images perfectly without alteration
+- No text quality loss or encoding issues
 - Default 300 DPI (adjustable with `--dpi`)
 
 **For even higher quality:**
@@ -154,7 +155,7 @@ output/
     └── page1_img1.png
 ```
 
-### Example 3: Page Rendering Mode (Best for Text Preservation)
+### Example 3: Image Region Rendering Mode (Best for Text Preservation)
 ```bash
 python pdf_image_extractor.py -i ./pdfs -o ./output --batch --render --dpi 300
 ```
@@ -163,17 +164,17 @@ python pdf_image_extractor.py -i ./pdfs -o ./output --batch --render --dpi 300
 ```
 output/
 ├── document1/
-│   ├── page1.png
-│   ├── page2.png
-│   └── page3.png
+│   ├── page1_img1.png    # Screenshot of image region from page 1
+│   ├── page2_img1.png    # Screenshot of image region from page 2
+│   └── page3_img1.png
 ├── document2/
-│   ├── page1.png
-│   └── page2.png
+│   ├── page1_img1.png
+│   └── page2_img1.png
 └── document3/
-    └── page1.png
+    └── page1_img1.png
 ```
 
-Each page is rendered as a complete image, preserving all text and visual elements perfectly.
+Only image regions are rendered (not entire pages), preserving text within images perfectly.
 
 ### Example 4: Large Images Only (Embedded Mode)
 ```bash
@@ -194,14 +195,16 @@ This will only extract embedded images larger than 100KB.
 6. **AI Analysis** (optional): Uses Claude to determine if images are high-quality and meaningful
 7. **Organization**: Saves all images in organized folders
 
-### Page Rendering Mode (`--render`)
+### Image Region Rendering Mode (`--render`)
 
-1. **PDF Scanning**: Opens each PDF and iterates through pages
-2. **Page Rendering**: Renders each page as a high-resolution image at specified DPI
-3. **Pixel-Perfect Capture**: Captures everything on the page exactly as it appears (text, images, graphics)
-4. **PNG Output**: Saves each page as a PNG image with lossless compression
-5. **AI Analysis** (optional): Uses Claude to determine if images are high-quality and meaningful
-6. **Organization**: Saves all rendered pages in organized folders
+1. **PDF Scanning**: Opens each PDF and scans all pages
+2. **Image Detection**: Identifies all images and their exact positions/coordinates
+3. **Bounding Box Extraction**: Gets the rectangular area of each image
+4. **Region Rendering**: Renders only that specific image region at high DPI (not the whole page)
+5. **Pixel-Perfect Capture**: Captures the image area exactly as it appears, preserving any text within
+6. **PNG Output**: Saves each image region as a PNG with lossless compression
+7. **AI Analysis** (optional): Uses Claude to determine if images are high-quality and meaningful
+8. **Organization**: Saves all rendered image regions in organized folders
 
 ## Claude AI Integration
 

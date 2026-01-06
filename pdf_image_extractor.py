@@ -73,12 +73,12 @@ class PDFImageExtractor:
 
     def _render_pages_as_images(self, pdf_path: str, output_folder: str) -> List[str]:
         """
-        Render each PDF page as a high-quality image (screenshot mode).
-        This preserves text and all visual elements exactly as they appear.
+        Detect images in PDF and render only those image regions (screenshot mode).
+        This preserves text within images perfectly without alteration.
 
         Args:
             pdf_path: Path to the PDF file
-            output_folder: Folder to save rendered images
+            output_folder: Folder to save rendered image regions
 
         Returns:
             List of saved image file paths
@@ -96,20 +96,65 @@ class PDFImageExtractor:
             zoom = self.dpi / 72.0
             mat = fitz.Matrix(zoom, zoom)
 
-            # Render each page
+            # Track unique images using hash to avoid duplicates
+            seen_images = set()
+
+            # Iterate through each page
             for page_num in range(len(pdf_document)):
                 page = pdf_document[page_num]
 
-                # Render page to pixmap (image)
-                pix = page.get_pixmap(matrix=mat, alpha=False)
+                # Get list of images on the page
+                image_list = page.get_images(full=True)
 
-                # Create filename
-                image_filename = f"page{page_num + 1}.png"
-                image_path = os.path.join(output_folder, image_filename)
+                # Process each image
+                for img_index, img_info in enumerate(image_list):
+                    xref = img_info[0]  # Image XREF number
 
-                # Save the image
-                pix.save(image_path)
-                saved_images.append(image_path)
+                    # Skip if we've seen this image before (duplicate)
+                    if xref in seen_images:
+                        continue
+                    seen_images.add(xref)
+
+                    try:
+                        # Get all instances of this image on the page
+                        img_rects = page.get_image_rects(xref)
+
+                        if not img_rects:
+                            continue
+
+                        # Use the first rectangle (main instance)
+                        rect = img_rects[0]
+
+                        # Skip very small images (likely logos, icons, etc.)
+                        # Calculate area in points
+                        area = (rect.width * rect.height)
+                        if area < (self.min_image_size / 100):  # Rough heuristic
+                            continue
+
+                        # Add some padding around the image (optional, 2 points on each side)
+                        padded_rect = rect + (-2, -2, 2, 2)
+
+                        # Make sure the rectangle is within page bounds
+                        padded_rect = padded_rect.intersect(page.rect)
+
+                        # Render only this region of the page at high DPI
+                        pix = page.get_pixmap(matrix=mat, clip=padded_rect, alpha=False)
+
+                        # Skip if rendered image is too small
+                        if pix.width < 50 or pix.height < 50:
+                            continue
+
+                        # Create a unique filename
+                        image_filename = f"page{page_num + 1}_img{img_index + 1}.png"
+                        image_path = os.path.join(output_folder, image_filename)
+
+                        # Save the rendered image region
+                        pix.save(image_path)
+                        saved_images.append(image_path)
+
+                    except Exception as e:
+                        print(f"  Warning: Could not render image {img_index + 1} from page {page_num + 1}: {str(e)}")
+                        continue
 
             pdf_document.close()
 
@@ -340,10 +385,10 @@ Examples:
   # Batch process all PDFs in a folder
   python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch
 
-  # Render pages as images (screenshot mode - preserves text perfectly)
+  # Render image regions only (screenshot mode - preserves text perfectly)
   python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch --render
 
-  # Render with high DPI for better quality
+  # Render image regions with high DPI for better quality
   python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch --render --dpi 600
 
   # Use Claude AI for image quality detection
@@ -361,7 +406,7 @@ Examples:
     parser.add_argument('--batch', action='store_true',
                         help='Enable batch processing mode (process folder of PDFs)')
     parser.add_argument('--render', action='store_true',
-                        help='Render pages as images (screenshot mode). Preserves text and layout perfectly.')
+                        help='Render only image regions (screenshot mode). Detects images and captures just those areas, preserving text perfectly.')
     parser.add_argument('--dpi', type=int, default=300,
                         help='DPI for page rendering (only used with --render, default: 300)')
     parser.add_argument('--use-claude', action='store_true',
@@ -381,8 +426,8 @@ Examples:
 
     # Display mode information
     if args.render:
-        print(f"Mode: Page Rendering (Screenshot mode) at {args.dpi} DPI")
-        print("Text and all visual elements will be preserved exactly as they appear.\n")
+        print(f"Mode: Image Region Rendering (Screenshot mode) at {args.dpi} DPI")
+        print("Detects images and renders only those regions, preserving text perfectly.\n")
     else:
         print(f"Mode: Embedded Image Extraction (min size: {args.min_size} bytes)\n")
 
