@@ -4,11 +4,15 @@ A powerful Python tool for extracting images from PDF files with batch processin
 
 ## Features
 
+- **Two Extraction Modes**:
+  - **Page Rendering Mode**: Renders entire pages as images (screenshot-like), perfect for preserving text
+  - **Embedded Extraction Mode**: Extracts individual embedded images from PDFs
 - **Batch Processing**: Process entire folders of PDF files at once
 - **Organized Output**: Each PDF gets its own folder for extracted images
 - **High Accuracy**: Uses PyMuPDF for reliable image extraction
-- **Duplicate Detection**: Automatically skips duplicate images within PDFs
-- **Size Filtering**: Filters out tiny images (icons, logos) based on file size
+- **Adjustable DPI**: Control output quality with DPI settings (render mode)
+- **Duplicate Detection**: Automatically skips duplicate images within PDFs (embedded mode)
+- **Size Filtering**: Filters out tiny images (icons, logos) based on file size (embedded mode)
 - **AI-Powered Quality Detection**: Optional Claude AI integration to filter out low-quality or irrelevant images
 - **Progress Tracking**: Real-time progress bars for batch operations
 - **Multiple Format Support**: Extracts PNG, JPEG, and other image formats
@@ -57,6 +61,26 @@ This will:
 - Extract images from each PDF
 - Save images in separate folders: `extracted_images/pdf_name1/`, `extracted_images/pdf_name2/`, etc.
 
+### Page Rendering Mode (Screenshot Mode) - RECOMMENDED
+
+**Use this mode when text in images appears altered or you need pixel-perfect extraction:**
+
+```bash
+python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch --render
+```
+
+This mode:
+- Renders each PDF page as a high-quality image (like taking a screenshot)
+- Preserves text and all visual elements exactly as they appear in the PDF
+- Perfect for documents where embedded images contain text
+- No text alteration or quality loss
+- Default 300 DPI (adjustable with `--dpi`)
+
+**For even higher quality:**
+```bash
+python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch --render --dpi 600
+```
+
 ### With Claude AI Quality Detection
 
 Use Claude AI to filter out low-quality images:
@@ -82,8 +106,10 @@ python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch --min-s
 | `-i, --input` | Yes | Input PDF file or folder containing PDFs |
 | `-o, --output` | Yes | Output folder for extracted images |
 | `--batch` | No | Enable batch processing mode |
+| `--render` | No | Render pages as images (screenshot mode, preserves text perfectly) |
+| `--dpi` | No | DPI for page rendering (only with `--render`, default: 300) |
 | `--use-claude` | No | Use Claude AI for image quality detection |
-| `--min-size` | No | Minimum image size in bytes (default: 10000) |
+| `--min-size` | No | Minimum image size in bytes (embedded mode only, default: 10000) |
 
 ## Examples
 
@@ -128,14 +154,37 @@ output/
     └── page1_img1.png
 ```
 
-### Example 3: Large Images Only
+### Example 3: Page Rendering Mode (Best for Text Preservation)
+```bash
+python pdf_image_extractor.py -i ./pdfs -o ./output --batch --render --dpi 300
+```
+
+**Output Structure:**
+```
+output/
+├── document1/
+│   ├── page1.png
+│   ├── page2.png
+│   └── page3.png
+├── document2/
+│   ├── page1.png
+│   └── page2.png
+└── document3/
+    └── page1.png
+```
+
+Each page is rendered as a complete image, preserving all text and visual elements perfectly.
+
+### Example 4: Large Images Only (Embedded Mode)
 ```bash
 python pdf_image_extractor.py -i ./pdfs -o ./output --batch --min-size 100000
 ```
 
-This will only extract images larger than 100KB.
+This will only extract embedded images larger than 100KB.
 
 ## How It Works
+
+### Embedded Image Extraction Mode (Default)
 
 1. **PDF Scanning**: Opens each PDF and scans all pages
 2. **Image Detection**: Identifies all embedded images using PyMuPDF
@@ -144,6 +193,15 @@ This will only extract images larger than 100KB.
 5. **Extraction**: Saves images in their original format (PNG, JPEG, etc.)
 6. **AI Analysis** (optional): Uses Claude to determine if images are high-quality and meaningful
 7. **Organization**: Saves all images in organized folders
+
+### Page Rendering Mode (`--render`)
+
+1. **PDF Scanning**: Opens each PDF and iterates through pages
+2. **Page Rendering**: Renders each page as a high-resolution image at specified DPI
+3. **Pixel-Perfect Capture**: Captures everything on the page exactly as it appears (text, images, graphics)
+4. **PNG Output**: Saves each page as a PNG image with lossless compression
+5. **AI Analysis** (optional): Uses Claude to determine if images are high-quality and meaningful
+6. **Organization**: Saves all rendered pages in organized folders
 
 ## Claude AI Integration
 
