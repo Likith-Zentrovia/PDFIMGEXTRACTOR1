@@ -23,16 +23,21 @@ load_dotenv()
 class PDFImageExtractor:
     """Extracts images from PDF files with batch processing support."""
 
-    def __init__(self, use_claude: bool = False, min_image_size: int = 10000):
+    def __init__(self, use_claude: bool = False, min_image_size: int = 10000,
+                 render_mode: bool = False, dpi: int = 300):
         """
         Initialize the PDF image extractor.
 
         Args:
             use_claude: Whether to use Claude AI for image quality detection
             min_image_size: Minimum image size in bytes to consider (filters tiny images)
+            render_mode: If True, renders pages as images (screenshot-like). If False, extracts embedded images.
+            dpi: DPI for page rendering (only used when render_mode=True, default: 300)
         """
         self.use_claude = use_claude
         self.min_image_size = min_image_size
+        self.render_mode = render_mode
+        self.dpi = dpi
         self.claude_client = None
 
         if use_claude:
@@ -52,6 +57,75 @@ class PDFImageExtractor:
     def extract_images_from_pdf(self, pdf_path: str, output_folder: str) -> List[str]:
         """
         Extract all images from a single PDF file.
+
+        Args:
+            pdf_path: Path to the PDF file
+            output_folder: Folder to save extracted images
+
+        Returns:
+            List of saved image file paths
+        """
+        # Choose extraction method based on render_mode
+        if self.render_mode:
+            return self._render_pages_as_images(pdf_path, output_folder)
+        else:
+            return self._extract_embedded_images(pdf_path, output_folder)
+
+    def _render_pages_as_images(self, pdf_path: str, output_folder: str) -> List[str]:
+        """
+        Render each PDF page as a high-quality image (screenshot mode).
+        This preserves text and all visual elements exactly as they appear.
+
+        Args:
+            pdf_path: Path to the PDF file
+            output_folder: Folder to save rendered images
+
+        Returns:
+            List of saved image file paths
+        """
+        saved_images = []
+
+        try:
+            # Open the PDF
+            pdf_document = fitz.open(pdf_path)
+
+            # Create output folder if it doesn't exist
+            os.makedirs(output_folder, exist_ok=True)
+
+            # Calculate zoom factor for desired DPI (default 72 DPI in PDF)
+            zoom = self.dpi / 72.0
+            mat = fitz.Matrix(zoom, zoom)
+
+            # Render each page
+            for page_num in range(len(pdf_document)):
+                page = pdf_document[page_num]
+
+                # Render page to pixmap (image)
+                pix = page.get_pixmap(matrix=mat, alpha=False)
+
+                # Create filename
+                image_filename = f"page{page_num + 1}.png"
+                image_path = os.path.join(output_folder, image_filename)
+
+                # Save the image
+                pix.save(image_path)
+                saved_images.append(image_path)
+
+            pdf_document.close()
+
+            # Optionally use Claude AI to analyze image quality
+            if self.use_claude and saved_images:
+                saved_images = self._filter_images_with_claude(saved_images)
+
+            return saved_images
+
+        except Exception as e:
+            print(f"Error rendering PDF {pdf_path}: {str(e)}")
+            return []
+
+    def _extract_embedded_images(self, pdf_path: str, output_folder: str) -> List[str]:
+        """
+        Extract embedded images from PDF (original extraction method).
 
         Args:
             pdf_path: Path to the PDF file
@@ -260,16 +334,22 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Extract from a single PDF
+  # Extract embedded images from PDFs
   python pdf_image_extractor.py -i document.pdf -o output_images
 
   # Batch process all PDFs in a folder
   python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch
 
+  # Render pages as images (screenshot mode - preserves text perfectly)
+  python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch --render
+
+  # Render with high DPI for better quality
+  python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch --render --dpi 600
+
   # Use Claude AI for image quality detection
   python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch --use-claude
 
-  # Set minimum image size (in bytes)
+  # Set minimum image size (only for embedded mode, not render mode)
   python pdf_image_extractor.py -i pdfs_folder -o extracted_images --batch --min-size 50000
         """
     )
@@ -280,18 +360,31 @@ Examples:
                         help='Output folder for extracted images')
     parser.add_argument('--batch', action='store_true',
                         help='Enable batch processing mode (process folder of PDFs)')
+    parser.add_argument('--render', action='store_true',
+                        help='Render pages as images (screenshot mode). Preserves text and layout perfectly.')
+    parser.add_argument('--dpi', type=int, default=300,
+                        help='DPI for page rendering (only used with --render, default: 300)')
     parser.add_argument('--use-claude', action='store_true',
                         help='Use Claude AI for image quality detection')
     parser.add_argument('--min-size', type=int, default=10000,
-                        help='Minimum image size in bytes (default: 10000)')
+                        help='Minimum image size in bytes (only applies to embedded extraction, default: 10000)')
 
     args = parser.parse_args()
 
     # Initialize extractor
     extractor = PDFImageExtractor(
         use_claude=args.use_claude,
-        min_image_size=args.min_size
+        min_image_size=args.min_size,
+        render_mode=args.render,
+        dpi=args.dpi
     )
+
+    # Display mode information
+    if args.render:
+        print(f"Mode: Page Rendering (Screenshot mode) at {args.dpi} DPI")
+        print("Text and all visual elements will be preserved exactly as they appear.\n")
+    else:
+        print(f"Mode: Embedded Image Extraction (min size: {args.min_size} bytes)\n")
 
     # Process based on mode
     if args.batch:
