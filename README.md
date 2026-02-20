@@ -1,4 +1,4 @@
-# PDF Image Extractor
+# PDF Image Extractor 
 
 A powerful Python tool for extracting images from PDF files with batch processing capabilities and optional AI-powered image quality detection using Claude.
 
@@ -125,7 +125,7 @@ extracted/
 └── research_paper/
     ├── page1_img1.png
     ├── page3_img1.jpeg
-    └── page5_img1.png
+    └── page5_img1.png ands
 ```
 
 ### Example 2: Batch Process with AI Filtering
